@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Café Lab - Totem</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .btn-animated {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-animated:active {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    }
+    .steam {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.7);
+      animation: steamUp 2s infinite ease-in-out;
+    }
+    @keyframes steamUp {
+      0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -40px) scale(1.5); opacity: 0; }
+    }
+    .flash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      animation: flashEffect 0.4s ease-out;
+    }
+    @keyframes flashEffect {
+      0% { opacity: 0.9; }
+      100% { opacity: 0; }
+    }
+    .dark-mode {
+      background-color: #1f2937;
+      color: white;
+    }
+    .dark-mode .bg-white {
+      background-color: #374151;
+    }
+    .dark-mode select {
+      background-color: #4b5563;
+      color: white;
+      border-color: #6b7280;
+    }
+  </style>
+</head>
+<body class="bg-amber-50 flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+  <audio id="glupSound" src="https://www.myinstants.com/media/sounds/quero-cafe-mp3cut.mp3"></audio>
+  <audio id="catSound" src="https://www.myinstants.com/media/sounds/miau-triste.mp3"></audio>
+
+  <button id="toggleMode" class="absolute top-4 right-4 px-4 py-2 bg-gray-800 text-white rounded-xl z-50">🌙</button>
+  <div class="w-full max-w-2xl p-6 bg-white rounded-2xl shadow-xl text-center space-y-8 relative">
+    <h1 class="text-4xl font-bold text-gray-800 dark:text-white">☕ Café Lab</h1>
+
+    <div>
+      <label for="nameSelect" class="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Quem fez o café?</label>
+      <select id="nameSelect" class="w-full p-4 text-xl border border-gray-300 rounded-lg">
+        <option value="Alison">Alison</option>
+        <option value="Thalita">Thalita</option>
+        <option value="Cora">Cora</option>
+      </select>
+    </div>
+
+    <div class="flex space-x-6 h-60 relative">
+      <button id="registerBtn" class="flex-1 px-6 py-8 text-3xl rounded-2xl bg-green-500 text-white font-bold shadow-lg hover:bg-green-600 transition-all btn-animated relative overflow-hidden">
+        ☕ Fiz café
+        <div class="steam"></div>
+      </button>
+      <button id="doneBtn" class="flex-1 px-6 py-8 text-3xl rounded-2xl bg-red-500 text-white font-bold shadow-lg hover:bg-red-600 transition-all btn-animated">
+        💀 Acabou
+      </button>
+    </div>
+
+    <div id="statusBox" class="text-lg text-gray-600 dark:text-gray-300">
+      Último café: <span id="statusText">Carregando...</span>
+    </div>
+  </div>
+  <div id="flash" class="flash hidden"></div>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAWd1vLE-A8hI-Z-0D4cNx3cHtgyspr90M",
+      authDomain: "coffelab-24b58.firebaseapp.com",
+      projectId: "coffelab-24b58",
+      storageBucket: "coffelab-24b58.appspot.com",
+      messagingSenderId: "766184777706",
+      appId: "1:766184777706:web:4f088c51eb7e1d2ea67493",
+      measurementId: "G-LQL5XL6PPY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const nameSelect = document.getElementById("nameSelect");
+    const registerBtn = document.getElementById("registerBtn");
+    const doneBtn = document.getElementById("doneBtn");
+    const statusText = document.getElementById("statusText");
+    const glupSound = document.getElementById("glupSound");
+    const catSound = document.getElementById("catSound");
+    const flash = document.getElementById("flash");
+    const toggleMode = document.getElementById("toggleMode");
+
+    let audioUnlocked = false;
+
+    toggleMode.onclick = () => {
+      document.body.classList.toggle("dark-mode");
+      toggleMode.textContent = document.body.classList.contains("dark-mode") ? "☀️" : "🌙";
+    };
+
+    async function updateStatusBox() {
+      try {
+        const snapshot = await db.collection("coffee").orderBy("timestamp", "desc").limit(1).get();
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          const data = doc.data();
+          const nome = data.creator?.name || "Desconhecido";
+          const quando = data.timestamp?.toDate?.().toLocaleString("pt-BR") || "desconhecido";
+          const status = data.aindaTem ? "☕ disponível" : "💀 acabou";
+          statusText.textContent = `${nome} - ${quando} - ${status}`;
+        } else {
+          statusText.textContent = "Nenhum registro ainda.";
+        }
+      } catch (err) {
+        statusText.textContent = "Erro ao carregar status.";
+        console.error(err);
+      }
+    }
+
+    registerBtn.onclick = async () => {
+      const nome = nameSelect.value;
+      const now = new Date();
+      try {
+        await db.collection("coffee").add({
+          timestamp: now,
+          creator: { name: nome },
+          level: 100,
+          aindaTem: true
+        });
+        if (audioUnlocked) glupSound.play();
+        flash.classList.remove("hidden");
+        setTimeout(() => flash.classList.add("hidden"), 400);
+        updateStatusBox();
+      } catch (err) {
+        alert("Erro ao registrar café.");
+        console.error(err);
+      }
+    };
+
+    doneBtn.onclick = async () => {
+      try {
+        const snapshot = await db.collection("coffee").orderBy("timestamp", "desc").limit(1).get();
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          await db.collection("coffee").doc(doc.id).update({ aindaTem: false });
+          if (audioUnlocked) catSound.play();
+          updateStatusBox();
+        }
+      } catch (err) {
+        alert("Erro ao marcar café como acabado.");
+        console.error(err);
+      }
+    };
+
+    document.body.addEventListener('click', () => {
+      audioUnlocked = true;
+    }, { once: true });
+
+    updateStatusBox();
+  </script>
+</body>
+</html>
