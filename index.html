@@ -56,6 +56,20 @@
       color: white;
       border-color: #6b7280;
     }
+    /* Estilo para o botão de fullscreen */
+    .fullscreen-btn {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      z-index: 50;
+    }
+    /* Estilo para quando estiver em fullscreen */
+    :fullscreen, ::backdrop {
+      background-color: inherit;
+    }
+    .dark-mode:fullscreen {
+      background-color: #1f2937;
+    }
   </style>
 </head>
 <body class="bg-amber-50 flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
@@ -63,6 +77,8 @@
   <audio id="catSound" src="https://www.myinstants.com/media/sounds/miau-triste.mp3"></audio>
 
   <button id="toggleMode" class="absolute top-4 right-4 px-4 py-2 bg-gray-800 text-white rounded-xl z-50">🌙</button>
+  <button id="fullscreenBtn" class="fullscreen-btn px-4 py-2 bg-gray-800 text-white rounded-xl">📱</button>
+  
   <div class="w-full max-w-2xl p-6 bg-white rounded-2xl shadow-xl text-center space-y-8 relative">
     <h1 class="text-4xl font-bold text-gray-800 dark:text-white">☕ Café Lab</h1>
 
@@ -112,13 +128,37 @@
     const catSound = document.getElementById("catSound");
     const flash = document.getElementById("flash");
     const toggleMode = document.getElementById("toggleMode");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
 
     let audioUnlocked = false;
 
+    // Função para alternar o modo escuro/claro
     toggleMode.onclick = () => {
       document.body.classList.toggle("dark-mode");
       toggleMode.textContent = document.body.classList.contains("dark-mode") ? "☀️" : "🌙";
     };
+
+    // Função para controlar o fullscreen
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          alert(`Erro ao entrar em tela cheia: ${err.message}`);
+        });
+        fullscreenBtn.textContent = "❌";
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+          fullscreenBtn.textContent = "📱";
+        }
+      }
+    });
+
+    // Detecta quando saímos do modo fullscreen para atualizar o ícone do botão
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        fullscreenBtn.textContent = "📱";
+      }
+    });
 
     async function updateStatusBox() {
       try {
